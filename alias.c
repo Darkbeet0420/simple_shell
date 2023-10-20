@@ -1,112 +1,165 @@
-#include "shell.h"
+#define DEFINE_ALIAS
+#include "main.h"
 
 /**
- * print_alias - add, remove or show aliases.
- * @data: struct for the program's data.
- * @alias: name of the alias to be printed.
- * Return: zero (if successfull) , or other number if its declared in the arguments
+ * create_alias - Create or updates an alias with a given name and value.
+ * @name: The name of the alias.
+ * @value: The value associated with the alias.
+ *
+ * Description: This function creates a new alias or updates an existing one
+ * with the specified name and value. If an alias with the same name already
+ * exists, its value is replaced with the provided value. If not, a new
+ * alias is created.
  */
-int print_alias(data_of_program *data, char *alias)
+void create_alias(char *name, char *value)
 {
-	int i, j, alias_length;
-	char buffer[250] = {'\0'};
+	alias *ptr, *check, *new_node;
+	char *tmp;
 
-	if (data->alias_list)
+	check = head;
+	/* truncate single quote ( ' ) if found in value */
+	if (*value == '\'')
 	{
-		alias_length = str_length(alias);
-		for (i = 0; data->alias_list[i]; i++)
+		value++;
+		tmp = _strndup(value, _strlen(value) - 1);
+		value = _strdup(tmp);
+	}
+
+	/* modifies alias with similar name */
+	if (modify_alias(check, name, value) != NULL)
+		return;
+
+	new_node = malloc(sizeof(alias));
+	if (new_node == NULL)
+		perror_exit();
+
+	new_node->name = _strdup(name);
+	new_node->value = _strdup(value);
+	new_node->next = NULL;
+
+	if (head == NULL)
+		head = new_node;
+	else
+	{
+		ptr = head;
+		while (ptr->next != NULL)
+			ptr = ptr->next;
+		ptr->next = new_node;
+	}
+}
+
+/**
+ * print_alias - Prints a list of all aliases.
+ *
+ * Description: This function prints a list of all aliases,
+ * one per line, in the format name='value'.
+ */
+void print_alias(void)
+{
+	alias *ptr;
+
+	ptr = head;
+	while (ptr != NULL)
+	{
+		_print(ptr->name);
+		_print("=\'");
+		_print(ptr->value);
+		_print("\'\n");
+		ptr = ptr->next;
+	}
+}
+
+/**
+ * search_alias - Searches for an alias by name.
+ * @name: The name of the alias to search for.
+ *
+ * Description: This function searches for an alias with the specified name.
+ * If found, it returns a pointer to the alias value; otherwise,
+ * it returns NULL.
+ *
+ * Return: A pointer to the alias value if found, or NULL if not found.
+ */
+char *search_alias(char *name)
+{
+	alias *ptr;
+
+	ptr = head;
+	while (ptr != NULL)
+	{
+		if (_strcmp(ptr->name, name) == 0)
 		{
-			if (!alias || (str_compare(data->alias_list[i], alias, alias_length)
-				&&	data->alias_list[i][alias_length] == '='))
-			{
-				for (j = 0; data->alias_list[i][j]; j++)
-				{
-					buffer[j] = data->alias_list[i][j];
-					if (data->alias_list[i][j] == '=')
-						break;
-				}
-				buffer[j + 1] = '\0';
-				buffer_add(buffer, "'");
-				buffer_add(buffer, data->alias_list[i] + j + 1);
-				buffer_add(buffer, "'\n");
-				_print(buffer);
-			}
+			_print(ptr->name);
+			_print("=\'");
+			_print(ptr->value);
+			_print("\'\n");
+			return (ptr->value);
 		}
-	}
-
-	return (0);
-}
-
-/**
- * get_alias - add, remove or show aliases
- * @data: struct for the program's data
- * @name: name of the requested alias.
- * Return: zero if sucess, or other number if its declared in the arguments
- */
-char *get_alias(data_of_program *data, char *name)
-{
-	int i, alias_length;
-	
-	if (name == NULL || data->alias_list == NULL)
-		return (NULL);
-
-	alias_length = str_length(name);
-
-	for (i = 0; data->alias_list[i]; i++)
-	{/* Iterates through the environ and check for coincidence of the varname */
-		if (str_compare(name, data->alias_list[i], alias_length) &&
-			data->alias_list[i][alias_length] == '=')
-		{/* returns the value of the key NAME=  when find it */
-			return (data->alias_list[i] + alias_length + 1);
-		}
-	}
-	/* returns NULL if did not find it */
-	return (NULL);
-
-}
-
-/**
- * set_alias - add or override alias.
- * @alias_string: alias to be seted in the form (name='value')
- * @data: struct for the program's data
- * Return: zero if sucess, or other number if its declared in the arguments
- */
-int set_alias(char *alias_string, data_of_program *data)
-{
-
-	int i, j;
-	char buffer[250] = {'0'}, *temp = NULL;
-
-	/* validate the arguments */
-	if (alias_string == NULL ||  data->alias_list == NULL)
-		return (1);
-	/* Iterates alias to find = char */
-	for (i = 0; alias_string[i]; i++)
-		if (alias_string[i] != '=')
-			buffer[i] = alias_string[i];
 		else
-		{/* search if the value of the alias is another alias */
-			temp = get_alias(data, alias_string + i + 1);
-			break;
-		}
-
-	/* Iterates through the alias list and check for coincidence of the varname */
-	for (j = 0; data->alias_list[j]; j++)
-		if (str_compare(buffer, data->alias_list[j], i) &&
-			data->alias_list[j][i] == '=')
-		{/* if the alias alredy exist */
-			free(data->alias_list[j]);
-			break;
-		}
-
-	/* add the alias */
-	if (temp)
-	{/* if the alias already exist */
-		buffer_add(buffer, "=");
-		buffer_add(buffer, temp);
-		data->alias_list[j] = str_duplicate(buffer);
+			ptr = ptr->next;
 	}
-	else /* if the alias does not exist */
-		data->alias_list[j] = str_duplicate(alias_string);
-	return (0);
+
+	_print("alias: ");
+	_print(name);
+	_print(": not found\n");
+	exit_status = 1;
+
+	return (NULL);
+}
+
+/**
+ * free_alias - Free memory allocated for alias nodes.
+ *
+ * Description: This function iterates through the linked list of aliases and
+ * frees the memory allocated for each alias node.
+ */
+void free_alias(void)
+{
+	alias *ptr;
+
+	while (head != NULL)
+	{
+		ptr = head->next;
+		free(head);
+		head = ptr;
+	}
+}
+
+/**
+ * replace_alias - Replace an alias with its corresponding value.
+ * @str_arr: alias to be replaced.
+ *
+ * Description: This function searches for an alias with the specified name.
+ * If found, it reallocates memory for the alias value, copies the
+ * value, and returns a pointer to the new string. If the alias is
+ * not found, it returns the original string.
+ *
+ * Return: A pointer to the new string if the alias is found, or the original
+ * string if not found.
+ */
+char *replace_alias(char *str_arr)
+{
+	alias *ptr;
+
+	ptr = head;
+
+	while (ptr != NULL)
+	{
+		if (_strcmp(ptr->name, str_arr) == 0)
+		{
+			/*
+			 * no need to realloc, just free str_arr, strdup
+			 * already dynamically allocs memory
+			 */
+			free(str_arr);
+			str_arr = _strdup(ptr->value);
+			if (str_arr == NULL)
+				perror_exit();
+			return (replace_alias(str_arr));
+		}
+
+		else
+			ptr = ptr->next;
+	}
+
+	return (str_arr);
 }
